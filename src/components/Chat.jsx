@@ -1,7 +1,17 @@
 import React, { useState, useEffect, useRef } from "react";
+import catJamEmote from '../assets/catJam.webp';
+import EZEmote from '../assets/EZ.webp';
+import KEKWEmote from '../assets/KEKW.webp';
+import monkaSEmote from '../assets/monkaS.webp';
 
 
 const users = ["noni7", "mahndoo", "dubdubz11", "howakang"];
+const emotes = [
+    { name: 'catJam', url: catJamEmote },
+    { name: 'EZ', url: EZEmote },
+    { name: 'KEKW', url: KEKWEmote },
+    { name: 'monkaS', url: monkaSEmote },
+  ];
 const commands = [
     { command: '/block', description: 'Block a user from interacting with you on Twitch' },
     { command: '/unblock', description: 'Remove user from your block list' },
@@ -19,11 +29,24 @@ const Chat = () => {
     const [filteredOptions, setFilteredOptions]= useState([]);
     const [optionsModal, setOptionsModal] = useState(false);
     const [commandsModal, setCommandsModal] = useState(false);
+    const [emotesModal, setEmotesModal] = useState(false);
+    const [filteredEmotes, setFilteredEmotes] = useState([]);
     const [filteredCommands, setFilteredCommands] = useState([]);
     const [filteredusers, setFilteredUsers] = useState([]);
+    const inputRef = useRef(null);
+
 
     // Create a ref to reference the chat messages container
-    const messagesEndRef = useRef(null);
+
+
+    const handleEmoteClick = (emote) => {
+        const parts = input.split(':');
+        parts.pop();
+        const newInput = parts.join(':') + ':' + emote + ' ';
+        setInput(newInput);
+        setShowEmoteSuggestions(false);
+        inputRef && inputRef.current && inputRef.current.focus();
+    };
 
     const setChatMessages = () => {
         if (input.trim()) {
@@ -36,35 +59,89 @@ const Chat = () => {
         const value = e.target.value;
         setInput(value);
     
-        if (value.includes('@')) {
+        // Determine the index of '/' and '@'
+        const lastAtIndex = value.lastIndexOf('@');
+        const lastSlashIndex = value.lastIndexOf('/');
+        const lastColonIndex= value.lastIndexOf(':');
+    
+        // Show user options modal if '@' is present
+        if (lastAtIndex > -1) {
             setOptionsModal(true);  
-            const searchValue = value.split('@').pop();
+            const searchValue = value.slice(lastAtIndex + 1);
             const filtered = users.filter(user => user.toLowerCase().includes(searchValue.toLowerCase()));
             setFilteredUsers(filtered);
-        } else if (value.includes('/')) {
-            setCommandsModal(true);
-            const searchValue = value.split('/').pop();
-            const filtered = commands.filter(command => command.command.toLowerCase().includes(searchValue.toLowerCase()));
-            setFilteredCommands(filtered);
-
         } else {
             setOptionsModal(false);
+        }
+
+        if(lastColonIndex > -1) {
+            setEmotesModal(true);
+            const searchValue = value.slice(lastColonIndex + 1);
+            const filtered = emotes.filter(emote => emote.name.toLowerCase().includes(searchValue.toLowerCase()));
+            setFilteredEmotes(filtered);
+        } else {
+            setEmotesModal(false);
+        }
+    
+        // Show commands modal only if '/' is at the beginning of the input
+        if (lastSlashIndex === 0) {
+            setCommandsModal(true);
+            const searchValue = value.slice(1);
+            const filtered = commands.filter(command => command.command.toLowerCase().includes(searchValue.toLowerCase()));
+            setFilteredCommands(filtered);
+        } else {
             setCommandsModal(false);
         }
-    }
+    };
+
+    
+    
 
     const handleUserClick = (value) => {
         setInput(prevInput => {
-            // Check if the input contains an '@' or '/' and append the value accordingly
-            if (prevInput.includes('@')) {
-                return `@${value}`;
-            } else if (prevInput.includes('/')) {
-                return `${value}`;
+            const lastAtIndex = prevInput.lastIndexOf('@');
+            const lastSlashIndex = prevInput.lastIndexOf('/');
+            const lastColonIndex = prevInput.lastIndexOf(':');
+    
+            // Determine what type of input is being auto-completed
+            if (lastAtIndex > -1) {
+                const lastSpaceIndex = prevInput.lastIndexOf(' ');
+                return prevInput.slice(0, lastSpaceIndex + 1) + `@${value}`; // Auto-complete username
+            } else if (lastSlashIndex === 0) {
+                const lastSpaceIndex = prevInput.lastIndexOf(' ');
+                return prevInput.slice(0, lastSpaceIndex + 1) + `${value}`; // Auto-complete command
+            } else if (lastColonIndex > -1) {
+                const lastSpaceIndex = prevInput.lastIndexOf(' ');
+                console.log(value);    
+                return prevInput.slice(0, lastSpaceIndex + 1) + `:${value.name}:`; // Auto-complete emote
+            } else {
+                return prevInput + ` ${value}`; // Default to appending at the end
             }
         });
-        setOptionsModal(false); // Close the options modal
-        setCommandsModal(false); // Close the commands modal
+    
+        // Close modals after selection
+        setOptionsModal(false);
+        setCommandsModal(false);
+        setEmotesModal(false);
     };
+    
+
+    const parseMessage = (message) => {
+    // Replace placeholders with image elements
+    return message.split(' ').map((part, index) => {
+        // Check if part is an emote
+        if (part.startsWith(':') && part.endsWith(':')) {
+            const emoteName = part.slice(1, -1); // Remove leading and trailing colons
+            const emote = emotes.find(e => e.name === emoteName)
+
+            if (emote) {
+                return <img key={index} src={emote.url} alt={emoteName} style={{ height: '28px', width: '28px' }} />;
+            }
+        }
+        return <span key={index}>{part} </span>; // Return other parts as plain text
+    });
+};
+    
     
 
     // Scroll to the bottom of the chat messages whenever they change
@@ -76,7 +153,7 @@ const Chat = () => {
         <div className="relative w-full max-w-[550px] px-4 py-3 rounded-lg bg-slate-900 opacity-80 h-[500px] flex flex-col mt-10">
             <div className="chat-messages flex-1 overflow-y-auto">
                 {messages.map((msg, index) => (
-                    <div className="text-[#EFEFF1]" key={index}><span className="text-[teal]">Stonks:</span> {msg}</div>
+                    <div className="text-[#EFEFF1] flex" key={index}><span className="text-[teal]">Stonks:</span> {parseMessage(msg)}</div>
                 ))}
                 {/* Invisible div to scroll into view */}
                 {/* <div ref={messagesEndRef} /> */}
@@ -110,6 +187,20 @@ const Chat = () => {
                     </div>
                 </div>
             )}
+            {emotesModal &&
+                <div className=" bg-opacity-75 flex">
+                <div className="p-1.5 cursor-pointer bg-[#18181B] border rounded border-[#333] text-white w-full">
+                    {filteredEmotes.map((emote, index) => (
+                        <div className="mb-2 flex" key={index}
+                        onClick={() => handleUserClick(emote)}
+                        >
+                            <img className="h-[28px] w-[28px]"src={emote.url} />
+                            {emote.name}
+                        </div>
+                    ))}
+                </div>
+            </div>
+            }
             <div className="chat-input mt-auto">
                 <input
                     type="text"
